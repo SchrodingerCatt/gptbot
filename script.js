@@ -1,8 +1,8 @@
 // -------------------------------------------------------------
 // Configuration (Use only Latin characters for variables/keys)
 // -------------------------------------------------------------
-const API_URL = "/process_query"; 
-const USER_ID = "web_client"; // Used to identify the client
+const API_URL = "/process_query";
+const USER_ID = "web_client";
 // -------------------------------------------------------------
 
 const chatBox = document.getElementById('chat-box');
@@ -31,10 +31,11 @@ async function sendMessage() {
     addMessage(prompt, 'user');
     userInput.value = '';
     sendButton.disabled = true;
-    statusMessage.textContent = 'პასუხის გენერაცია მიმდინარეობს...';
+    // Status text in ASCII, but still displays on screen
+    statusMessage.textContent = 'Processing request...'; 
 
-    // 🛑 Payload uses only Latin keys (prompt, user_id)
     const payload = {
+        // Keys must be Latin: prompt, user_id
         prompt: prompt,
         user_id: USER_ID
     };
@@ -42,52 +43,51 @@ async function sendMessage() {
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
-            // 🛑 Headers uses only Latin keys
             headers: {
+                // Headers must be Latin: 'Content-Type'
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(payload)
         });
 
-        // Error handling for non-2xx HTTP statuses (e.g., 500, 404)
+        // Error handling for non-2xx HTTP statuses
         if (!response.ok) {
             const errorText = await response.text();
             let errorData;
             
             try {
-                // Try to parse the error response as JSON (FastAPI usually returns JSON errors)
+                // Try to parse the error response as JSON (FastAPI error)
                 errorData = JSON.parse(errorText);
             } catch (e) {
                 // If not JSON, throw a generic error
-                throw new Error(`API შეცდომა: HTTP სტატუსი ${response.status}.`);
+                throw new Error(`API Error: HTTP status ${response.status}.`); 
             }
             
             // Extract the 'detail' message from the FastAPI JSON error
-            const detail = errorData.detail || `API შეცდომა: HTTP სტატუსი ${response.status}`;
+            const detail = errorData.detail || `API Error: HTTP status ${response.status}`;
             throw new Error(detail); 
         }
 
         const data = await response.json();
 
         if (data.status === 'success') {
-            // 3. Display success response
             addMessage(data.ai_response, 'ai');
             statusMessage.textContent = '';
         } else {
-            // If HTTP is 200 but internal status is not 'success'
-            const errorMsg = data.ai_response || 'პასუხის მიღებისას დაფიქსირდა შიდა შეცდომა.';
-            addMessage(`შიდა შეცდომა: ${errorMsg}`, 'ai');
-            statusMessage.textContent = 'API შეცდომა: შიდა პასუხი ვერ იქნა მიღებული.';
+            // Internal API logic failure
+            const errorMsg = data.ai_response || 'Internal error occurred.';
+            addMessage(`Error: ${errorMsg}`, 'ai');
+            statusMessage.textContent = 'API Error: Internal response failed.';
         }
 
     } catch (error) {
-        // 5. Display network or caught HTTP error
         console.error('Error:', error);
         
-        let displayMessage = error.message || 'სერვერთან დაკავშირება ვერ ხერხდება.';
+        // Display generic error message to the user
+        let displayMessage = error.message || 'Could not connect to the server.';
         
-        addMessage(`შეცდომა: ${displayMessage}`, 'ai');
-        statusMessage.textContent = 'API მოთხოვნა ვერ შესრულდა.';
+        addMessage(`Error: ${displayMessage}`, 'ai');
+        statusMessage.textContent = 'API Request Failed.';
     } finally {
         sendButton.disabled = false;
     }
