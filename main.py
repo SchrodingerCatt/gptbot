@@ -1,5 +1,6 @@
 import os
 import uvicorn
+import base64 # Base64-ის იმპორტი
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 from langchain_community.vectorstores import Chroma
@@ -17,7 +18,6 @@ from fastapi.staticfiles import StaticFiles
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
-    # Logging if key is not found (ASCII only)
     print("FATAL: OPENAI_API_KEY environment variable not found!")
 
 # -------------------------------------------------------------
@@ -44,7 +44,6 @@ def init_rag_system():
         embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
         
         # Create and persist vector store
-        # NOTE: Make sure 'chroma_db' directory is not uploaded to GitHub or is ignored.
         vector_store = Chroma.from_documents(texts, embeddings, persist_directory="chroma_db")
         vector_store.persist()
         
@@ -63,7 +62,6 @@ def init_rag_system():
         print("RAG Chain successfully created.")
 
     except Exception as e:
-        # Error logging (ASCII only)
         print(f"!!! RAG System Initialization Error: {e}")
         rag_chain = None 
 
@@ -80,7 +78,7 @@ async def startup_event():
 
 # Data Models
 class ChatbotRequest(BaseModel):
-    prompt: str
+    prompt: str # ეს ველი ახლა Base64 სტრიქონს მიიღებს
     user_id: str
 
 class ChatbotResponse(BaseModel):
@@ -89,9 +87,21 @@ class ChatbotResponse(BaseModel):
     ai_response: str
     result_data: dict
 
-# Authentication removed for simplicity and deployment on the same domain
+# *** განახლებული ენდპოინტი ***
 @app.post("/process_query", response_model=ChatbotResponse, tags=["Public"])
 async def process_query(request_data: ChatbotRequest):
+    
+    # 💡 Base64 გაშიფვრა (Decode)
+    try:
+        # იღებს Base64 სტრიქონს, დეკოდირებს ბაიტებად და შემდეგ UTF-8 ტექსტად
+        decoded_prompt_bytes = base64.b64decode(request_data.prompt)
+        decoded_prompt = decoded_prompt_bytes.decode('utf-8')
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid prompt encoding (Base64 expected). Detail: {e}"
+        )
+
     if not rag_chain:
         # If RAG system failed to load, return 500
         raise HTTPException(
@@ -100,29 +110,28 @@ async def process_query(request_data: ChatbotRequest):
         )
 
     try:
-        # Run RAG call
-        result = rag_chain.invoke({"query": request_data.prompt})
+        # გამოიყენეთ გაშიფრული ქართული ტექსტი RAG ჯაჭვში
+        result = rag_chain.invoke({"query": decoded_prompt})
         ai_response = result.get('result', "Response could not be generated.")
 
         return ChatbotResponse(
             status="success",
-            processed_prompt=f"Your query processed. Length: {len(request_data.prompt)}.",
+            processed_prompt=f"Your query processed. Length: {len(decoded_prompt)}.",
             ai_response=ai_response,
             result_data={},
         )
     except Exception as e:
-        # Error logging (ASCII only)
         print(f"Error running RAG chain: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An internal server error occurred: {str(e)}",
         )
 
-# Static files serving (HTML, CSS, JS) - CRITICAL for frontend
+# Static files serving
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 # -------------------------------------------------------------
-# 4. Uvicorn run (for local testing, Render uses Start Command)
+# 4. Uvicorn run
 # -------------------------------------------------------------
 
 if __name__ == "__main__":
