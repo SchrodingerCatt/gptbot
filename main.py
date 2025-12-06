@@ -11,17 +11,17 @@ from langchain_text_splitters import CharacterTextSplitter
 from fastapi.staticfiles import StaticFiles
 
 # -------------------------------------------------------------
-# 1. OpenAI API გასაღების შემოწმება
+# 1. OpenAI API Key Check
 # -------------------------------------------------------------
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
-    # ლოგირება, თუ გასაღები არ არის ნაპოვნი
+    # Logging if key is not found (ASCII only)
     print("FATAL: OPENAI_API_KEY environment variable not found!")
 
 # -------------------------------------------------------------
-# 2. RAG სისტემის ინიციალიზაცია
+# 2. RAG System Initialization
 # -------------------------------------------------------------
 
 vector_store = None
@@ -30,28 +30,28 @@ rag_chain = None
 def init_rag_system():
     global vector_store, rag_chain
     try:
-        # ტექსტის ჩატვირთვა PDF-დან
+        # Load text from PDF
         loader = PyPDFLoader("prompt.pdf")
         documents = loader.load()
         print(f"Text successfully loaded from prompt.pdf. Total length: {sum(len(doc.page_content) for doc in documents)} characters.")
         
-        # დოკუმენტის დაყოფა
+        # Split document
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
         texts = text_splitter.split_documents(documents)
 
-        # ემბედინგების ინიციალიზაცია
+        # Initialize embeddings
         print(">>> Initializing RAG system (OpenAI)...")
         embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
         
-        # ვექტორული ბაზის შექმნა და შენახვა
+        # Create and persist vector store
         # NOTE: Make sure 'chroma_db' directory is not uploaded to GitHub or is ignored.
         vector_store = Chroma.from_documents(texts, embeddings, persist_directory="chroma_db")
         vector_store.persist()
         
-        # RAG Retriever-ის ინიციალიზაცია
-        print(" RAG Retriever successfully loaded from chroma_db.")
+        # Initialize RAG Retriever
+        print("RAG Retriever successfully loaded from chroma_db.")
         
-        # LLM-ის ინიციალიზაცია
+        # Initialize LLM
         llm = ChatOpenAI(temperature=0, openai_api_key=OPENAI_API_KEY)
         
         # RetrievalQA Chain
@@ -60,24 +60,25 @@ def init_rag_system():
             chain_type="stuff",
             retriever=vector_store.as_retriever()
         )
-        print(" RAG Chain successfully created.")
+        print("RAG Chain successfully created.")
 
     except Exception as e:
+        # Error logging (ASCII only)
         print(f"!!! RAG System Initialization Error: {e}")
-        rag_chain = None # თუ ინიციალიზაცია ვერ მოხერხდა
+        rag_chain = None 
 
 # -------------------------------------------------------------
-# 3. FastAPI აპლიკაცია და როუტები
+# 3. FastAPI Application and Routes
 # -------------------------------------------------------------
 
 app = FastAPI(title="GPT-RAG Chatbot API")
 
-# აპლიკაციის დაწყებისას RAG სისტემის ინიციალიზაცია
+# Initialize RAG system on application startup
 @app.on_event("startup")
 async def startup_event():
     init_rag_system()
 
-# მონაცემთა მოდელები
+# Data Models
 class ChatbotRequest(BaseModel):
     prompt: str
     user_id: str
@@ -88,7 +89,7 @@ class ChatbotResponse(BaseModel):
     ai_response: str
     result_data: dict
 
-# 🛑 Authentication removed for simplicity and deployment on the same domain
+# Authentication removed for simplicity and deployment on the same domain
 @app.post("/process_query", response_model=ChatbotResponse, tags=["Public"])
 async def process_query(request_data: ChatbotRequest):
     if not rag_chain:
@@ -110,13 +111,14 @@ async def process_query(request_data: ChatbotRequest):
             result_data={},
         )
     except Exception as e:
+        # Error logging (ASCII only)
         print(f"Error running RAG chain: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An internal server error occurred: {str(e)}",
         )
 
-# Static files serving (HTML, CSS, JS)
+# Static files serving (HTML, CSS, JS) - CRITICAL for frontend
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 # -------------------------------------------------------------
