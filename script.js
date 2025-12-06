@@ -1,16 +1,25 @@
 // -------------------------------------------------------------
-// Configuration
+// 1. Fetch Override Fix
+// -------------------------------------------------------------
+// ვინახავთ ორიგინალ fetch ფუნქციას, სანამ WASM-ის ბაინდინგები შეცვლიან მას.
+// ეს არის ყველაზე კრიტიკული ნაბიჯი Wasm/Unicode კონფლიქტის მოსაგვარებლად.
+const nativeFetch = window.fetch; 
+
+// -------------------------------------------------------------
+// 2. Configuration
 // -------------------------------------------------------------
 const API_URL = "/process_query";
 const USER_ID = "web_client";
-// -------------------------------------------------------------
 
 const chatBox = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 const statusMessage = document.getElementById('status-message');
 
-// Function to add a message to the chat box
+// -------------------------------------------------------------
+// 3. Utility Functions
+// -------------------------------------------------------------
+
 function addMessage(text, sender) {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message');
@@ -22,12 +31,15 @@ function addMessage(text, sender) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// Function to communicate with the API
+// -------------------------------------------------------------
+// 4. Main Send Message Logic
+// -------------------------------------------------------------
+
 async function sendMessage() {
     const prompt = userInput.value.trim();
     if (!prompt) return;
 
-    // 1. Add user message
+    // A. UI განახლება
     addMessage(prompt, 'user');
     userInput.value = '';
     sendButton.disabled = true;
@@ -35,17 +47,13 @@ async function sendMessage() {
 
     let encodedPrompt;
     try {
-        // 💡 ყველაზე სტაბილური კოდირება Wasm კონფლიქტისთვის:
-        // 1. ტექსტი გადაჰყავს UTF-8 ბაიტებად
+        // 💡 Base64 კოდირება: ქართული ტექსტი გადაგვყავს UTF-8 ბაიტებად, 
+        // შემდეგ კი სუფთა ASCII Base64 სტრიქონად.
         const encoder = new TextEncoder();
         const utf8Bytes = encoder.encode(prompt);
-        
-        // 2. ბაიტები გადაჰყავს Base64-ში (ASCII სტრიქონი)
         const binaryString = String.fromCodePoint(...utf8Bytes);
-        encodedPrompt = btoa(binaryString);
-
+        encodedPrompt = btoa(binaryString); // Base64 სტრიქონი
     } catch (e) {
-        // თუ კოდირება ვერ მოხერხდა
         addMessage(`Error encoding prompt: ${e.message}`, 'ai');
         sendButton.disabled = false;
         statusMessage.textContent = 'Encoding Failed.';
@@ -53,21 +61,24 @@ async function sendMessage() {
     }
 
     const payload = {
-        // prompt ველი ახლა შეიცავს მხოლოდ ASCII-ზე დაფუძნებულ Base64 სტრიქონს
         prompt: encodedPrompt, 
         user_id: USER_ID
     };
 
     try {
-        const response = await fetch(API_URL, {
+        // B. Fetch გამოძახება (nativeFetch-ის გამოყენებით)
+        const response = await nativeFetch(API_URL, {
             method: 'POST',
+            // ქუქიებისა და რეფერერის ბლოკირება გლობალური Unicode კონფლიქტის თავიდან ასაცილებლად
+            credentials: 'omit', 
+            referrerPolicy: 'no-referrer', 
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(payload)
         });
 
-        // Error handling for non-2xx HTTP statuses
+        // C. Error Handling (HTTP)
         if (!response.ok) {
             const errorText = await response.text();
             let errorData;
@@ -84,6 +95,7 @@ async function sendMessage() {
 
         const data = await response.json();
 
+        // D. Success Handling
         if (data.status === 'success') {
             addMessage(data.ai_response, 'ai');
             statusMessage.textContent = '';
@@ -94,6 +106,7 @@ async function sendMessage() {
         }
 
     } catch (error) {
+        // E. General Error Handling
         console.error('Error:', error);
         
         let displayMessage = error.message || 'Could not connect to the server.';
@@ -104,6 +117,10 @@ async function sendMessage() {
         sendButton.disabled = false;
     }
 }
+
+// -------------------------------------------------------------
+// 5. Event Listeners
+// -------------------------------------------------------------
 
 // Send message on button click
 sendButton.addEventListener('click', sendMessage);
