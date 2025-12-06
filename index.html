@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenAI RAG ჩატბოტი</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <h1>GPT RAG კონსულტანტი</h1>
+        <div id="chat-box" class="chat-box">
+            <div class="message system-message">
+                გამარჯობა! მე ვარ თქვენი GPT-ზე დაფუძნებული RAG ასისტენტი. დამისვით შეკითხვები დოკუმენტების შესახებ.
+            </div>
+        </div>
+        <div class="input-container">
+            <input type="text" id="user-input" placeholder="ჩაწერეთ თქვენი შეკითხვა...">
+            <button id="send-button">გაგზავნა</button>
+        </div>
+        <div id="status-message"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

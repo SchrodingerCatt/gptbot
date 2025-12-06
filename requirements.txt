@@ -1,0 +1,20 @@
+# FastAPI და Uvicorn სერვერი
+fastapi
+uvicorn
+
+# LangChain-ის ბირთვი და ინსტრუმენტები
+langchain-core
+langchain-community
+langchain-openai
+
+# ChromaDB ვექტორული ბაზა
+chromadb
+
+# PDF-ის დამუშავება
+pypdf
+
+# HTTP მოთხოვნები (OpenAI-ს გამოძახება)
+requests
+
+# Pydantic (მონაცემთა ვალიდაცია)
+pydantic
