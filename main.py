@@ -1,7 +1,6 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import OpenAIEmbeddings
@@ -19,7 +18,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
     # ლოგირება, თუ გასაღები არ არის ნაპოვნი
-    print("FATAL: OPENAI_API_KEY გარემოს ცვლადი ვერ მოიძებნა!")
+    print("FATAL: OPENAI_API_KEY environment variable not found!")
 
 # -------------------------------------------------------------
 # 2. RAG სისტემის ინიციალიზაცია
@@ -34,22 +33,23 @@ def init_rag_system():
         # ტექსტის ჩატვირთვა PDF-დან
         loader = PyPDFLoader("prompt.pdf")
         documents = loader.load()
-        print(f"პერსონის ტექსტი წარმატებით ჩაიტვირთა prompt.pdf-დან. სიგრძე: {sum(len(doc.page_content) for doc in documents)} სიმბოლო.")
+        print(f"Text successfully loaded from prompt.pdf. Total length: {sum(len(doc.page_content) for doc in documents)} characters.")
         
         # დოკუმენტის დაყოფა
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
         texts = text_splitter.split_documents(documents)
 
         # ემბედინგების ინიციალიზაცია
-        print(">>> RAG სისტემის ინიციალიზაცია (OpenAI)...")
+        print(">>> Initializing RAG system (OpenAI)...")
         embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
         
         # ვექტორული ბაზის შექმნა და შენახვა
+        # NOTE: Make sure 'chroma_db' directory is not uploaded to GitHub or is ignored.
         vector_store = Chroma.from_documents(texts, embeddings, persist_directory="chroma_db")
         vector_store.persist()
         
         # RAG Retriever-ის ინიციალიზაცია
-        print(" RAG Retriever წარმატებით ჩაიტვირთა chroma_db-დან.")
+        print(" RAG Retriever successfully loaded from chroma_db.")
         
         # LLM-ის ინიციალიზაცია
         llm = ChatOpenAI(temperature=0, openai_api_key=OPENAI_API_KEY)
@@ -60,10 +60,10 @@ def init_rag_system():
             chain_type="stuff",
             retriever=vector_store.as_retriever()
         )
-        print(" RAG Chain წარმატებით შეიქმნა.")
+        print(" RAG Chain successfully created.")
 
     except Exception as e:
-        print(f"!!! RAG სისტემის ინიციალიზაციის შეცდომა: {e}")
+        print(f"!!! RAG System Initialization Error: {e}")
         rag_chain = None # თუ ინიციალიზაცია ვერ მოხერხდა
 
 # -------------------------------------------------------------
@@ -88,43 +88,41 @@ class ChatbotResponse(BaseModel):
     ai_response: str
     result_data: dict
 
-# 🛑 ავტორიზაცია მოხსნილია, რადგან ინტერფეისი და API ერთსა და იმავე დომენზეა.
+# 🛑 Authentication removed for simplicity and deployment on the same domain
 @app.post("/process_query", response_model=ChatbotResponse, tags=["Public"])
 async def process_query(request_data: ChatbotRequest):
     if not rag_chain:
-        # თუ RAG სისტემა ვერ ჩაიტვირთა, დაბრუნდება 500
+        # If RAG system failed to load, return 500
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="RAG სისტემა ინიციალიზაციის ფაზაშია ან ვერ მოხერხდა მისი ჩატვირთვა.",
+            detail="RAG system is still initializing or failed to load.",
         )
 
     try:
-        # RAG ქოლის გაშვება
+        # Run RAG call
         result = rag_chain.invoke({"query": request_data.prompt})
-        ai_response = result.get('result', "პასუხი ვერ იქნა გენერირებული.")
+        ai_response = result.get('result', "Response could not be generated.")
 
         return ChatbotResponse(
             status="success",
-            processed_prompt=f"თქვენი მოთხოვნა დამუშავებულია. სიგრძე: {len(request_data.prompt)}.",
+            processed_prompt=f"Your query processed. Length: {len(request_data.prompt)}.",
             ai_response=ai_response,
             result_data={},
         )
     except Exception as e:
-        print(f"შეცდომა RAG chain-ის გაშვებისას: {e}")
+        print(f"Error running RAG chain: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"მოხდა შიდა სერვერული შეცდომა: {str(e)}",
+            detail=f"An internal server error occurred: {str(e)}",
         )
 
-# სტატიკური ფაილების მომსახურება (HTML, CSS, JS)
-# ეს არის კრიტიკული ნაწილი, რომელიც უზრუნველყოფს ინტერფეისის ჩატვირთვას.
+# Static files serving (HTML, CSS, JS)
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 # -------------------------------------------------------------
-# 4. Uvicorn-ის გაშვება (ლოკალური ტესტირებისთვის)
+# 4. Uvicorn run (for local testing, Render uses Start Command)
 # -------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Render იყენებს Start Command-ს, ამიტომ ეს ნაწილი მხოლოდ ლოკალურად იმუშავებს.
     port = int(os.getenv("PORT", 8040))
     uvicorn.run(app, host="0.0.0.0", port=port)
