@@ -22,7 +22,7 @@ function addMessage(text, sender) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// Function to communicate with the API
+// *** განახლებული sendMessage ფუნქცია ***
 async function sendMessage() {
     const prompt = userInput.value.trim();
     if (!prompt) return;
@@ -31,12 +31,24 @@ async function sendMessage() {
     addMessage(prompt, 'user');
     userInput.value = '';
     sendButton.disabled = true;
-    // Status text in ASCII, but still displays on screen
-    statusMessage.textContent = 'Processing request...'; 
+    statusMessage.textContent = 'Processing request...'; 
+
+    // 💡 ცვლილება აქ: ქართული ტექსტის Base64-ში დაშიფვრა (Encode)
+    let encodedPrompt;
+    try {
+        // ეს უზრუნველყოფს, რომ მიღებული Base64 სტრიქონი იქნება სუფთა ASCII.
+        encodedPrompt = btoa(unescape(encodeURIComponent(prompt))); 
+    } catch (e) {
+        // შეცდომის დამუშავება, თუ კოდირება ვერ მოხერხდა
+        addMessage(`Error encoding prompt: ${e.message}`, 'ai');
+        sendButton.disabled = false;
+        statusMessage.textContent = 'Encoding Failed.';
+        return;
+    }
 
     const payload = {
-        // Keys must be Latin: prompt, user_id
-        prompt: prompt,
+        // prompt ველში ახლა არის Base64 სტრიქონი
+        prompt: encodedPrompt, 
         user_id: USER_ID
     };
 
@@ -44,7 +56,6 @@ async function sendMessage() {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
-                // Headers must be Latin: 'Content-Type'
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(payload)
@@ -56,16 +67,13 @@ async function sendMessage() {
             let errorData;
             
             try {
-                // Try to parse the error response as JSON (FastAPI error)
                 errorData = JSON.parse(errorText);
             } catch (e) {
-                // If not JSON, throw a generic error
-                throw new Error(`API Error: HTTP status ${response.status}.`); 
+                throw new Error(`API Error: HTTP status ${response.status}.`); 
             }
             
-            // Extract the 'detail' message from the FastAPI JSON error
             const detail = errorData.detail || `API Error: HTTP status ${response.status}`;
-            throw new Error(detail); 
+            throw new Error(detail); 
         }
 
         const data = await response.json();
@@ -74,7 +82,6 @@ async function sendMessage() {
             addMessage(data.ai_response, 'ai');
             statusMessage.textContent = '';
         } else {
-            // Internal API logic failure
             const errorMsg = data.ai_response || 'Internal error occurred.';
             addMessage(`Error: ${errorMsg}`, 'ai');
             statusMessage.textContent = 'API Error: Internal response failed.';
@@ -83,7 +90,6 @@ async function sendMessage() {
     } catch (error) {
         console.error('Error:', error);
         
-        // Display generic error message to the user
         let displayMessage = error.message || 'Could not connect to the server.';
         
         addMessage(`Error: ${displayMessage}`, 'ai');
