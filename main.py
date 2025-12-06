@@ -59,7 +59,7 @@ def load_persona_from_pdf(file_path: str) -> str:
 CUSTOM_PERSONA_TEXT = load_persona_from_pdf(PERSONA_PDF_PATH)
 
 # --- FastAPI აპლიკაციის ინიციალიზაცია ---
-app = FastAPI(title="OpenAI RAG API", version="1.0 - Final Fix")
+app = FastAPI(title="OpenAI RAG API", version="1.0 - Root HTML Fix")
 
 # ... (Startup ლოგიკა, CORS Middleware, verify_api_key, მონაცემთა მოდელები უცვლელია) ...
 
@@ -218,8 +218,7 @@ async def process_query(
 
 # =========================================================================
 # 📢 !!! სტატიკური ფაილების მომსახურება !!!
-# ეს არის ბოლო როუტი და ემსახურება index.html-ს Root URL-ზე (/).
-# ჩვენ ვვარაუდობთ, რომ HTML, CSS, JS ფაილები დევს 'static' საქაღალდეში!
+# ვიყენებთ '.' (Root Directory) რადგან 'static' საქაღალდე არ არსებობს.
 # =========================================================================
-app.mount("/", StaticFiles(directory="static", html=True), name="static") 
+app.mount("/", StaticFiles(directory=".", html=True), name="static") 
 # =========================================================================
