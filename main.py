@@ -10,8 +10,8 @@ import uvicorn
 from pypdf import PdfReader 
 from typing import Optional
 
-# 📢 სტატიკური ფაილების იმპორტი აღარ არის საჭირო
-# from fastapi.staticfiles import StaticFiles 
+# 📢 აუცილებელია სტატიკური ფაილების მოსამსახურებლად!
+from fastapi.staticfiles import StaticFiles 
 
 # LangChain-ის იმპორტები
 try:
@@ -23,13 +23,11 @@ except ImportError:
     RAG_TOOLS_AVAILABLE = False
 
 # ----------------------------------------------------------------------------------
-# --- კონფიგურაცია: გასაღებების ჩატვირთვა ENVIRONMENT VARIABLES-იდან (უსაფრთხო) ---
+# --- კონფიგურაცია: გასაღებების ჩატვირთვა ENVIRONMENT VARIABLES-იდან ---
 # ----------------------------------------------------------------------------------
-# Render-ზე უნდა შექმნათ ეს Environment Variables: OPENAI_API_KEY და LOCAL_API_KEY
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 LOCAL_API_KEY = os.environ.get("LOCAL_API_KEY") 
 
-# LangChain-ის გამოსაყენებლად გარემოს ცვლადის დაყენება
 if OPENAI_API_KEY:
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY 
 
@@ -42,18 +40,16 @@ CHROMA_PATH = "chroma_db"
 
 global_rag_retriever: Optional[Chroma.as_retriever] = None
 
-# --- ფუნქცია პერსონის PDF-დან ჩასატვირთად (უცვლელი) ---
+# ... (load_persona_from_pdf ფუნქცია უცვლელია) ...
 def load_persona_from_pdf(file_path: str) -> str:
     """კითხულობს მთელ ტექსტს PDF ფაილიდან pypdf-ის გამოყენებით."""
     DEFAULT_PERSONA = "თქვენ ხართ სასარგებლო ასისტენტი, რომელიც პასუხობს ქართულ ენაზე."
     try:
         reader = PdfReader(file_path)
         text = "".join(page.extract_text() + "\n\n" for page in reader.pages if page.extract_text())
-        
         if not text.strip():
             print(f" ERROR: PDF ფაილი '{file_path}' ცარიელია. გამოყენებულია დეფოლტური პერსონა.")
             return DEFAULT_PERSONA
-            
         print(f"პერსონის ტექსტი წარმატებით ჩაიტვირთა {file_path}-დან. სიგრძე: {len(text.strip())} სიმბოლო.")
         return text.strip()
     except Exception as e:
@@ -63,29 +59,23 @@ def load_persona_from_pdf(file_path: str) -> str:
 CUSTOM_PERSONA_TEXT = load_persona_from_pdf(PERSONA_PDF_PATH)
 
 # --- FastAPI აპლიკაციის ინიციალიზაცია ---
-app = FastAPI(title="OpenAI RAG API", version="1.0 - Render Ready")
+app = FastAPI(title="OpenAI RAG API", version="1.0 - Final Fix")
 
-# --- Startup ლოგიკა: RAG ინიციალიზაცია (OPENAI_API_KEY-ს მოითხოვს) ---
+# ... (Startup ლოგიკა, CORS Middleware, verify_api_key, მონაცემთა მოდელები უცვლელია) ...
+
 @app.on_event("startup")
 async def startup_event():
     global global_rag_retriever
-    
     if not RAG_TOOLS_AVAILABLE:
         print("RAG ინიციალიზაცია გამოტოვებულია.")
         return
-        
     print(">>> RAG სისტემის ინიციალიზაცია (OpenAI)...")
-    
     if os.path.exists(CHROMA_PATH):
         try:
-            # თუ გასაღები ვერ მოიძებნა, Embedding ფუნქცია ვერ იმუშავებს
             if not OPENAI_API_KEY:
                  print(" ERROR: OPENAI_API_KEY ვერ მოიძებნა. ChromaDB-ის ჩატვირთვა ვერ ხერხდება.")
                  return
-                 
             embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-            
-            # ChromaDB-ის ჩატვირთვა
             vector_store = Chroma(
                 persist_directory=CHROMA_PATH, 
                 embedding_function=embeddings
@@ -95,7 +85,7 @@ async def startup_event():
         except Exception as e:
             print(f" ERROR: ChromaDB-ის ჩატვირთვა ვერ მოხერხდა: {e}.")
     else:
-        print(f" WARNING: ვექტორული ბაზა {CHROMA_PATH} ვერ მოიძებნა. RAG არააქტიურია. (Render-ზე ეს ნიშნავს, რომ ინდექსირება არ გაგიშვებიათ)")
+        print(f" WARNING: ვექტორული ბაზა {CHROMA_PATH} ვერ მოიძებნა. RAG არააქტიურია.")
         
 # --- CORS Middleware (უცვლელი) ---
 origins = ["*"]
@@ -106,18 +96,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# -------------------------------
 
 # (Dependency) ავტორიზაციის ფუნქცია
 async def verify_api_key(api_key: str = Header(..., alias=API_KEY_NAME)):
-    #  შემოწმება, რომ ლოკალური გასაღები კონფიგურირებულია
     if not LOCAL_API_KEY:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="სერვერზე API გასაღები არ არის კონფიგურირებული. შეამოწმეთ Render-ის ცვლადები.",
         )
-    
-    # გასაღებების შედარება
     if not secrets.compare_digest(api_key, LOCAL_API_KEY):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -137,14 +123,12 @@ class ChatbotResponse(BaseModel):
     ai_response: str
     result_data: dict
 
-# --- OpenAI API-ს გამოძახება (RAG ლოგიკით) ---
+# ... (generate_openai_content ფუნქცია უცვლელია) ...
 def generate_openai_content(prompt: str) -> str:
     """უკავშირდება OpenAI API-ს, იყენებს RAG-ს კონტექსტის დასამატებლად."""
-    #  შემოწმება, რომ OpenAI გასაღები არსებობს
     if not OPENAI_API_KEY:
         return "ERROR: OpenAI API გასაღები არ არის კონფიგურირებული სერვერზე."
     
-    # 1. კონტექსტის ამოღება RAG-ის საშუალებით (უცვლელი)
     rag_context = ""
     is_rag_active = global_rag_retriever is not None
     
@@ -152,7 +136,6 @@ def generate_openai_content(prompt: str) -> str:
         try:
             docs: list[Document] = global_rag_retriever.get_relevant_documents(prompt)
             context_text = "\n---\n".join([doc.page_content for doc in docs])
-            
             rag_context = (
                 f"გამოიყენეთ შემდეგი კონტექსტი პასუხის გასაცემად. თუ პასუხი მოცემულ კონტექსტში არ არის, "
                 f"მაშინ უპასუხეთ ზოგადი ცოდნის საფუძველზე: \n\n--- DOCUMENTS ---\n{context_text}\n---"
@@ -160,7 +143,6 @@ def generate_openai_content(prompt: str) -> str:
         except Exception as e:
             rag_context = ""
 
-    # 2. საბოლოო პრომპტის ფორმირება (უცვლელი)
     final_user_prompt = f"{rag_context}\n\nმომხმარებლის შეკითხვა: {prompt}"
 
     headers = {
@@ -176,7 +158,6 @@ def generate_openai_content(prompt: str) -> str:
         ]
     }
 
-    # API-ს გამოძახება ექსპონენციალური Backoff-ით (უცვლელი)
     max_retries = 3
     for attempt in range(max_retries):
         try:
@@ -187,7 +168,6 @@ def generate_openai_content(prompt: str) -> str:
                 timeout=30 
             )
             
-            # ... (შეცდომების დამუშავების ლოგიკა უცვლელია) ...
             if response.status_code >= 400:
                 try:
                     error_detail = response.json()
@@ -214,16 +194,6 @@ def generate_openai_content(prompt: str) -> str:
     
     return "ERROR: პასუხი ვერ იქნა გენერირებული."
 
-# =========================================================================
-# 📢 !!! აღდგენილი Root API როუტი !!!
-# ეს დააბრუნებს JSON-ს Render-ის მთავარ მისამართზე.
-# =========================================================================
-@app.get("/")
-def read_root():
-    rag_status = "აქტიურია" if global_rag_retriever else "არააქტიურია (გაუშვით ingest.py)"
-    return {"message": "API მუშაობს!", "RAG_Status": rag_status, "model": OPENAI_MODEL_NAME}
-# =========================================================================
-
 
 @app.post("/process_query", response_model=ChatbotResponse, tags=["Secured"])
 async def process_query(
@@ -246,6 +216,10 @@ async def process_query(
         result_data=response_data,
     )
 
-# ----------------------------------------------------------------------------------
-# 📢 ლოკალური გაშვების ლოგიკა (if __name__ == "__main__":) ამოღებულია Render-ისთვის.
-# ----------------------------------------------------------------------------------
+# =========================================================================
+# 📢 !!! სტატიკური ფაილების მომსახურება !!!
+# ეს არის ბოლო როუტი და ემსახურება index.html-ს Root URL-ზე (/).
+# ჩვენ ვვარაუდობთ, რომ HTML, CSS, JS ფაილები დევს 'static' საქაღალდეში!
+# =========================================================================
+app.mount("/", StaticFiles(directory="static", html=True), name="static") 
+# =========================================================================
