@@ -1,5 +1,5 @@
 // -------------------------------------------------------------
-// Configuration (Use only Latin characters for variables/keys)
+// Configuration
 // -------------------------------------------------------------
 const API_URL = "/process_query";
 const USER_ID = "web_client";
@@ -22,7 +22,7 @@ function addMessage(text, sender) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// *** განახლებული sendMessage ფუნქცია ***
+// Function to communicate with the API
 async function sendMessage() {
     const prompt = userInput.value.trim();
     if (!prompt) return;
@@ -33,13 +33,19 @@ async function sendMessage() {
     sendButton.disabled = true;
     statusMessage.textContent = 'Processing request...'; 
 
-    // 💡 ცვლილება აქ: ქართული ტექსტის Base64-ში დაშიფვრა (Encode)
     let encodedPrompt;
     try {
-        // ეს უზრუნველყოფს, რომ მიღებული Base64 სტრიქონი იქნება სუფთა ASCII.
-        encodedPrompt = btoa(unescape(encodeURIComponent(prompt))); 
+        // 💡 ყველაზე სტაბილური კოდირება Wasm კონფლიქტისთვის:
+        // 1. ტექსტი გადაჰყავს UTF-8 ბაიტებად
+        const encoder = new TextEncoder();
+        const utf8Bytes = encoder.encode(prompt);
+        
+        // 2. ბაიტები გადაჰყავს Base64-ში (ASCII სტრიქონი)
+        const binaryString = String.fromCodePoint(...utf8Bytes);
+        encodedPrompt = btoa(binaryString);
+
     } catch (e) {
-        // შეცდომის დამუშავება, თუ კოდირება ვერ მოხერხდა
+        // თუ კოდირება ვერ მოხერხდა
         addMessage(`Error encoding prompt: ${e.message}`, 'ai');
         sendButton.disabled = false;
         statusMessage.textContent = 'Encoding Failed.';
@@ -47,7 +53,7 @@ async function sendMessage() {
     }
 
     const payload = {
-        // prompt ველში ახლა არის Base64 სტრიქონი
+        // prompt ველი ახლა შეიცავს მხოლოდ ASCII-ზე დაფუძნებულ Base64 სტრიქონს
         prompt: encodedPrompt, 
         user_id: USER_ID
     };
