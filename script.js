@@ -1,9 +1,8 @@
 // -------------------------------------------------------------
-// კონფიგურაცია
+// Configuration (Use only Latin characters for variables/keys)
 // -------------------------------------------------------------
 const API_URL = "/process_query"; 
-// 🛑 უსაფრთხოების მიზნით, კლიენტის მხარეს API Key აღარ არის საჭირო!
-const USER_ID = "web_client";
+const USER_ID = "web_client"; // Used to identify the client
 // -------------------------------------------------------------
 
 const chatBox = document.getElementById('chat-box');
@@ -11,7 +10,7 @@ const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 const statusMessage = document.getElementById('status-message');
 
-// ფუნქცია შეტყობინების ჩატ-ბოქსში დასამატებლად
+// Function to add a message to the chat box
 function addMessage(text, sender) {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message');
@@ -19,21 +18,22 @@ function addMessage(text, sender) {
     messageDiv.textContent = text;
     chatBox.appendChild(messageDiv);
     
-    // ჩატის ბოქსის ბოლოში ჩასქროლვა
+    // Scroll to the bottom
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// API-სთან კომუნიკაციის ფუნქცია
+// Function to communicate with the API
 async function sendMessage() {
     const prompt = userInput.value.trim();
     if (!prompt) return;
 
-    // 1. მომხმარებლის შეტყობინების დამატება
+    // 1. Add user message
     addMessage(prompt, 'user');
     userInput.value = '';
     sendButton.disabled = true;
     statusMessage.textContent = 'პასუხის გენერაცია მიმდინარეობს...';
 
+    // 🛑 Payload uses only Latin keys (prompt, user_id)
     const payload = {
         prompt: prompt,
         user_id: USER_ID
@@ -42,26 +42,27 @@ async function sendMessage() {
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
+            // 🛑 Headers uses only Latin keys
             headers: {
                 'Content-Type': 'application/json',
-                // 🛑 X-API-Key ჰედერი ამოღებულია!
             },
             body: JSON.stringify(payload)
         });
 
-        // 📢 კრიტიკული ცვლილება: შეცდომის სტატუსის დამუშავება
+        // Error handling for non-2xx HTTP statuses (e.g., 500, 404)
         if (!response.ok) {
             const errorText = await response.text();
             let errorData;
             
             try {
+                // Try to parse the error response as JSON (FastAPI usually returns JSON errors)
                 errorData = JSON.parse(errorText);
             } catch (e) {
-                // თუ პასუხი არ არის JSON (მაგალითად, 404 HTML)
+                // If not JSON, throw a generic error
                 throw new Error(`API შეცდომა: HTTP სტატუსი ${response.status}.`);
             }
             
-            // თუ JSON-ში დეტალია, გამოიყენეთ ის, თუ არა - ზოგადი სტატუსი
+            // Extract the 'detail' message from the FastAPI JSON error
             const detail = errorData.detail || `API შეცდომა: HTTP სტატუსი ${response.status}`;
             throw new Error(detail); 
         }
@@ -69,19 +70,19 @@ async function sendMessage() {
         const data = await response.json();
 
         if (data.status === 'success') {
-            // 3. წარმატებული პასუხის ჩვენება
+            // 3. Display success response
             addMessage(data.ai_response, 'ai');
             statusMessage.textContent = '';
         } else {
-            // თუ API პასუხი წარმატებულია (HTTP 200), მაგრამ შიდა სტატუსი არაა 'success'
+            // If HTTP is 200 but internal status is not 'success'
             const errorMsg = data.ai_response || 'პასუხის მიღებისას დაფიქსირდა შიდა შეცდომა.';
             addMessage(`შიდა შეცდომა: ${errorMsg}`, 'ai');
             statusMessage.textContent = 'API შეცდომა: შიდა პასუხი ვერ იქნა მიღებული.';
         }
 
     } catch (error) {
-        // 5. ქსელური ან HTTP შეცდომის ჩვენება
-        console.error('შეცდომა:', error);
+        // 5. Display network or caught HTTP error
+        console.error('Error:', error);
         
         let displayMessage = error.message || 'სერვერთან დაკავშირება ვერ ხერხდება.';
         
@@ -92,10 +93,10 @@ async function sendMessage() {
     }
 }
 
-// ღილაკზე დაჭერით გაგზავნა
+// Send message on button click
 sendButton.addEventListener('click', sendMessage);
 
-// Enter-ზე დაჭერით გაგზავნა
+// Send message on Enter key press
 userInput.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         sendMessage();
