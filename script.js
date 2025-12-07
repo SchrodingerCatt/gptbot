@@ -2,8 +2,8 @@
 // const userInput = document.getElementById('user-input');
 // const sendButton = document.getElementById('send-button');
 // const statusMessage = document.getElementById('status-message');
-// const API_URL = '/api/query'; // ან თქვენი რეალური API URL
-// const USER_ID = 'session-123'; // ან თქვენი რეალური User ID
+// const API_URL = '/api/query'; // თქვენი API ენდპოინტი
+// const USER_ID = 'session-123'; // მომხმარებლის იდენტიფიკატორი
 
 async function sendMessage() {
     const prompt = userInput.value.trim();
@@ -15,42 +15,21 @@ async function sendMessage() {
     sendButton.disabled = true;
     statusMessage.textContent = 'Processing request...'; 
 
-    let encodedPrompt;
-    try {
-        // Base64 კოდირება UTF-8 სიმბოლოებისთვის (გასწორებული ლოგიკა)
-        const encoder = new TextEncoder();
-        const utf8Bytes = encoder.encode(prompt); // 1. მივიღოთ UTF-8 ბაიტები
-
-        // 2. ბაიტების მასივის გადაყვანა "ერთბაიტიან" სტრიქონში
-        // (რაც თავიდან აგვაცილებს უნიკოდის 4304-ის შეცდომას btoa-ში)
-        const binaryString = Array.from(utf8Bytes, byte => 
-            String.fromCharCode(byte)
-        ).join('');
-        
-        // 3. სტრიქონის დაშიფვრა Base64-ში
-        encodedPrompt = btoa(binaryString); 
-
-    } catch (e) {
-        addMessage(`Error encoding prompt: ${e.message}`, 'ai');
-        sendButton.disabled = false;
-        statusMessage.textContent = 'Encoding Failed.';
-        return;
-    }
-
+    // 🛑 ყველაზე მნიშვნელოვანი ცვლილება: Base64 კოდირება მოხსნილია!
+    // სერვერს ვუგზავნით უბრალო, დაუშიფრავ ტექსტს (prompt)
     const payload = {
-        prompt: encodedPrompt, 
+        prompt: prompt, // prompt-ი გადის უცვლელად
         user_id: USER_ID
     };
 
-    // B. FETCH API-ის გამოყენება (ჩანაცვლებულია XMLHttpRequest)
+    // B. FETCH API-ის გამოყენება
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
-            // აუცილებელია Content-Type
             headers: {
+                // Content-Type: application/json უზრუნველყოფს UTF-8-ის სწორად გაგზავნას
                 'Content-Type': 'application/json',
             },
-            // მონაცემების გაგზავნა JSON ფორმატში
             body: JSON.stringify(payload)
         });
 
@@ -81,7 +60,7 @@ async function sendMessage() {
             statusMessage.textContent = 'API Request Failed.';
         }
     } catch (error) {
-        // ქსელური შეცდომა (Network Error, სერვერთან კავშირის პრობლემა)
+        // ქსელური შეცდომა
         sendButton.disabled = false;
         statusMessage.textContent = '';
         addMessage(`Network Error: Failed to connect to API or request aborted.`, 'ai');
