@@ -1,6 +1,7 @@
 # --- ძირითადი სერვერი და ვებ ჩარჩო ---
 fastapi
 uvicorn
+pydantic # აუცილებელია FastAPI-ს მოდელებისთვის
 
 # --- AI/RAG ინსტრუმენტები ---
 langchain-openai
@@ -13,5 +14,5 @@ chromadb
 # --- მონაცემთა დამუშავება და უსაფრთხოება ---
 pypdf
 requests
-python-dotenv 
+python-dotenv
 python-multipart
