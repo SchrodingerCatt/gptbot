@@ -1,11 +1,9 @@
 import os
 import uvicorn
-# import base64 # 🛑 Base64-ის იმპორტი აღარ არის საჭირო
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
-# 💡 განახლებული იმპორტი: გამოიყენეთ langchain_chroma
+# გამოიყენება განახლებული პაკეტი: langchain-chroma
 from langchain_chroma import Chroma
-# 🛑 მოძველებული იმპორტი: from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
@@ -20,7 +18,6 @@ from fastapi.staticfiles import StaticFiles
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
-    # რეკომენდაცია: გამოიყენეთ HTTPException, თუ Key აუცილებელია გაშვებისას
     print("FATAL: OPENAI_API_KEY environment variable not found!")
 
 # -------------------------------------------------------------
@@ -46,7 +43,7 @@ def init_rag_system():
         print(">>> Initializing RAG system (OpenAI)...")
         embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
         
-        # 💡 გამოიყენეთ განახლებული Chroma იმპორტი
+        # Create and persist vector store
         vector_store = Chroma.from_documents(texts, embeddings, persist_directory="chroma_db")
         vector_store.persist()
         
@@ -81,7 +78,7 @@ async def startup_event():
 
 # Data Models
 class ChatbotRequest(BaseModel):
-    # 🛑 ეს ველი ახლა წმინდა UTF-8 სტრიქონს მიიღებს
+    # იღებს წმინდა UTF-8 სტრიქონს
     prompt: str 
     user_id: str
 
@@ -91,22 +88,21 @@ class ChatbotResponse(BaseModel):
     ai_response: str
     result_data: dict
 
-# *** განახლებული ენდპოინტი (Base64-ის გარეშე) ***
-@app.post("/process_query", response_model=ChatbotResponse, tags=["Public"])
+# *** განახლებული ენდპოინტი: /api/query ***
+@app.post("/api/query", response_model=ChatbotResponse, tags=["Public"])
 async def process_query(request_data: ChatbotRequest):
     
-    # 🛑 Base64 გაშიფვრის ბლოკი მოხსნილია!
-    decoded_prompt = request_data.prompt # უბრალოდ ვიღებთ ტექსტს
+    # Base64 დეკოდირება მოხსნილია
+    decoded_prompt = request_data.prompt 
 
     if not rag_chain:
-        # If RAG system failed to load, return 500
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="RAG system is still initializing or failed to load.",
         )
 
     try:
-        # გამოიყენეთ დაუშიფრავი ქართული/ინგლისური ტექსტი RAG ჯაჭვში
+        # გამოიყენეთ დაუშიფრავი ტექსტი RAG ჯაჭვში
         result = rag_chain.invoke({"query": decoded_prompt})
         ai_response = result.get('result', "Response could not be generated.")
 
