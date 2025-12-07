@@ -1,6 +1,6 @@
 import os
 import uvicorn
-from fastapi import FastAPI, HTTPException, status, Form # 💡 დამატებულია Form
+from fastapi import FastAPI, HTTPException, status, Form
 from pydantic import BaseModel
 # ✅ სწორი იმპორტი: გამოიყენეთ langchain-chroma
 from langchain_chroma import Chroma 
@@ -43,7 +43,7 @@ def init_rag_system():
         print(">>> RAG სისტემის ინიციალიზაცია (OpenAI)...")
         embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
         
-        # Create and persist vector store (იყენებს langchain_chroma.Chroma-ს)
+        # Create and persist vector store
         vector_store = Chroma.from_documents(texts, embeddings, persist_directory="chroma_db")
         vector_store.persist()
         
@@ -83,11 +83,11 @@ class ChatbotResponse(BaseModel):
     ai_response: str
     result_data: dict
 
-# *** განახლებული ენდპოინტი: იღებს Form Data-ს ***
+# *** განახლებული ენდპოინტი: /api/query იღებს Form Data-ს ***
 @app.post("/api/query", response_model=ChatbotResponse, tags=["Public"])
 async def process_query(
-    prompt: str = Form(...), # 💡 მიიღებს prompt-ს Form Data-დან
-    user_id: str = Form(...)  # 💡 მიიღებს user_id-ს Form Data-დან
+    prompt: str = Form(...), # მიიღებს prompt-ს Form Data-დან
+    user_id: str = Form(...)  # მიიღებს user_id-ს Form Data-დან
 ):
     
     # Base64 დეკოდირება მოხსნილია, ვიღებთ წმინდა ტექსტს
