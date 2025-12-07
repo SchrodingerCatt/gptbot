@@ -2,7 +2,6 @@
 
 // 🔑 !!! კონფიგურაცია !!!
 // 🛑 აუცილებლად შეცვალეთ ეს მისამართი თქვენი Render სერვისის სრული URL-ით.
-// მაგალითად: "https://gptbot-v1.1.onrender.com/process_query"
 const API_URL = "https://your-render-domain-name.onrender.com/process_query"; 
 const USER_ID = "test_user_001";
 // -------------------------------------------------------------
@@ -19,7 +18,7 @@ function addMessage(text, sender) {
     messageDiv.classList.add('message');
     messageDiv.classList.add(sender === 'user' ? 'user-message' : 'ai-message');
     
-    // 🛑 გარდაქმნის ყველაფერს უსაფრთხოდ ტექსტად
+    // 🛑 უზრუნველყოფს, რომ შიგთავსი ყოველთვის იყოს ტექსტი.
     messageDiv.textContent = String(text); 
     
     chatBox.appendChild(messageDiv);
@@ -62,17 +61,17 @@ async function sendMessage() {
         if (response.ok && data.status === 'success') {
             let aiResponseText = data.ai_response;
             
+            // დამცავი მექანიზმი
             if (typeof aiResponseText !== 'string' || !aiResponseText) {
-                // თუ პასუხი ვერ მოიძებნა, გამოიტანეთ მთელი JSON ტექსტად
                 aiResponseText = `ERROR: პასუხი ვერ იქნა ამოღებული. სრული პასუხი: ${JSON.stringify(data)}`;
             }
             
-            // 🛑 სწორედ აქ ხდება მხოლოდ ტექსტის ჩვენება
+            // 🛑 სწორედ აქ ხდება მხოლოდ ai_response ველის ჩვენება
             addMessage(aiResponseText, 'ai'); 
             statusMessage.textContent = '';
 
         } else {
-            // 404, 401, ან სხვა შეცდომის დამუშავება
+            // შეცდომის დამუშავება (404, 401, 500)
             const errorMsg = data.detail || data.ai_response || JSON.stringify(data, null, 2);
             addMessage(`API შეცდომა: ${errorMsg}`, 'ai');
             statusMessage.textContent = `API შეცდომა: ${response.status}. შეამოწმეთ URL/გასაღები.`;
