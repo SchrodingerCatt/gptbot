@@ -1,8 +1,11 @@
-// -------------------------------------------------------------
-// XHR-ზე გადართვა Wasm-ის კონფლიქტის თავიდან ასაცილებლად
-// -------------------------------------------------------------
+// სავარაუდო გლობალური ცვლადები (დავუშვათ, რომ ესენი სწორად არის განსაზღვრული სხვაგან)
+// const userInput = document.getElementById('user-input');
+// const sendButton = document.getElementById('send-button');
+// const statusMessage = document.getElementById('status-message');
+// const API_URL = '/api/query'; // ან თქვენი რეალური API URL
+// const USER_ID = 'session-123'; // ან თქვენი რეალური User ID
 
-// ... (კონფიგურაცია და addMessage ფუნქცია უცვლელია)
+// დანარჩენი დამხმარე ფუნქციები (addMessage) უნდა დარჩეს უცვლელი
 
 async function sendMessage() {
     const prompt = userInput.value.trim();
@@ -12,15 +15,23 @@ async function sendMessage() {
     addMessage(prompt, 'user');
     userInput.value = '';
     sendButton.disabled = true;
-    statusMessage.textContent = 'Processing request...'; 
+    statusMessage.textContent = 'Processing request...'; 
 
     let encodedPrompt;
     try {
-        // Base64 კოდირება (უცვლელია)
+        // Base64 კოდირება UTF-8 სიმბოლოებისთვის (გასწორებული ლოგიკა)
         const encoder = new TextEncoder();
-        const utf8Bytes = encoder.encode(prompt);
-        const binaryString = String.fromCodePoint(...utf8Bytes);
-        encodedPrompt = btoa(binaryString); 
+        const utf8Bytes = encoder.encode(prompt); // 1. მივიღოთ UTF-8 ბაიტები
+
+        // 2. ბაიტების მასივი გადავიყვანოთ "ერთბაიტიან" სტრიქონად, რომელიც btoa-ს სჭირდება
+        // (რათა თავიდან ავიცილოთ შეცდომა 4304-ზე მეტი სიმბოლოების გამო)
+        const rawBinary = Array.prototype.map.call(new Uint8Array(utf8Bytes), (byte) => {
+            return String.fromCharCode(byte);
+        }).join('');
+        
+        // 3. სტრიქონის დაშიფვრა Base64-ში
+        encodedPrompt = btoa(rawBinary); 
+        
     } catch (e) {
         addMessage(`Error encoding prompt: ${e.message}`, 'ai');
         sendButton.disabled = false;
@@ -33,14 +44,12 @@ async function sendMessage() {
         user_id: USER_ID
     };
 
+    // B. XHR მოთხოვნის მომზადება და გაგზავნა
     const xhr = new XMLHttpRequest();
     xhr.open("POST", API_URL, true);
     
-    // 💡 XHR-ისთვის ჰედერი
+    // XHR-ისთვის ჰედერი
     xhr.setRequestHeader("Content-Type", "application/json");
-
-    // 💡 ქუქიების და რეფერერის ბლოკირება (XHR-ში განსხვავებულად მუშაობს, მაგრამ აუცილებელია)
-    // credentials: 'omit' fetch-ის სპეციფიკურია, XHR-ში მას უბრალოდ არ ვრთავთ
 
     xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
@@ -81,5 +90,3 @@ async function sendMessage() {
     // E. XHR გაგზავნა
     xhr.send(JSON.stringify(payload));
 }
-
-// ... (Event Listeners უცვლელია)
