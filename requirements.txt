@@ -10,7 +10,7 @@ langchain-openai
 # ChromaDB ვექტორული ბაზა
 chromadb
 
-# 🛑 აუცილებელი დამატება Chroma-ს ახალი იმპორტისთვის:
+# აუცილებელი დამატება Chroma-ს ახალი იმპორტისთვის:
 langchain-chroma
 
 # PDF-ის დამუშავება
@@ -21,6 +21,3 @@ requests
 
 # Pydantic (მონაცემთა ვალიდაცია)
 pydantic
-
-# რეკომენდებული დამოკიდებულება
-numpy
