@@ -1,6 +1,6 @@
 // ეს ცვლადები უნდა შეცვალოთ თქვენი კონფიგურაციის მიხედვით
-// API_URL უნდა მიუთითებდეს თქვენს Render-ზე დაჰოსტილ სერვერზე
-const API_URL = "/process_query"; // თუ frontend და backend ერთ დომენზეა, გამოიყენეთ შედარებითი მისამართი
+// API_URL უნდა მიუთითებდეს თქვენს სერვერზე
+const API_URL = "/api/query"; // ემთხვევა main.py-ს ახალ მისამართს
 const USER_ID = "test_user_001"; // მომხმარებლის იდენტიფიკატორი
 // -------------------------------------------------------------
 
@@ -42,9 +42,8 @@ async function sendMessage() {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
-                // Content-Type: application/json უზრუნველყოფს UTF-8-ის სწორად გაგზავნას
                 'Content-Type': 'application/json',
-                // X-API-Key ჰედერი მოხსნილია უსაფრთხოებისთვის.
+                // X-API-Key ჰედერი მოხსნილია
             },
             body: JSON.stringify(payload)
         });
