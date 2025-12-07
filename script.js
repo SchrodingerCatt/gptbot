@@ -32,20 +32,19 @@ async function sendMessage() {
     sendButton.disabled = true;
     statusMessage.textContent = 'პასუხის გენერაცია მიმდინარეობს...';
 
-    // Base64 კოდირება მოხსნილია, prompt-ი გადის უცვლელად.
-    const payload = {
-        prompt: prompt, 
-        user_id: USER_ID
-    };
+    // 🛑 მონაცემების შექმნა Form Data ფორმატში
+    const formData = new URLSearchParams();
+    formData.append('prompt', prompt); 
+    formData.append('user_id', USER_ID);
 
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                // X-API-Key ჰედერი მოხსნილია
+                // 💡 აუცილებელი ჰედერი Form Data-სთვის
+                'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: JSON.stringify(payload)
+            body: formData.toString() // მონაცემების გაგზავნა
         });
 
         const data = await response.json();
