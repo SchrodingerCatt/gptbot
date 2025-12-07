@@ -1,9 +1,9 @@
+// script.js
+
 // 🔑 !!! კონფიგურაცია !!!
-// შეცვალეთ ეს მისამართი თქვენი Render სერვისის საბაზისო URL-ით.
-// მაგ: "https://your-service-name.onrender.com/process_query"
-// script.js ფაილში:
-// შეცვალეთ ეს ხაზი!
-const API_URL = "https://gptbot-v1.1.onrender.com/process_query";; 
+// 🛑 აუცილებლად შეცვალეთ ეს მისამართი თქვენი Render სერვისის სრული URL-ით.
+// მაგალითად: "https://gptbot-v1.1.onrender.com/process_query"
+const API_URL = "https://your-render-domain-name.onrender.com/process_query"; 
 const USER_ID = "test_user_001";
 // -------------------------------------------------------------
 
@@ -11,27 +11,25 @@ const chatBox = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 const statusMessage = document.getElementById('status-message');
-const apiKeyInput = document.getElementById('api-key-input'); // იღებს გასაღებს HTML-ის ველიდან
+const apiKeyInput = document.getElementById('api-key-input'); 
 
 // ფუნქცია შეტყობინების ჩატ-ბოქსში დასამატებლად
 function addMessage(text, sender) {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message');
     messageDiv.classList.add(sender === 'user' ? 'user-message' : 'ai-message');
-    // 📢 გამოიყენება textContent, რათა თავიდან იქნას აცილებული XSS შეტევები.
-    messageDiv.textContent = text; 
-    chatBox.appendChild(messageDiv);
     
-    // ჩატის ბოქსის ბოლოში ჩასქროლვა
+    // 🛑 გარდაქმნის ყველაფერს უსაფრთხოდ ტექსტად
+    messageDiv.textContent = String(text); 
+    
+    chatBox.appendChild(messageDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// API-სთან კომუნიკაციის ფუნქცია
 async function sendMessage() {
     const prompt = userInput.value.trim();
     if (!prompt) return;
 
-    // 1. უსაფრთხოების შემოწმება: გასაღების წაკითხვა ინპუტის ველიდან
     const currentApiKey = apiKeyInput ? apiKeyInput.value.trim() : "";
     
     if (!currentApiKey) {
@@ -39,7 +37,6 @@ async function sendMessage() {
         return;
     }
 
-    // 2. ინტერფეისის განახლება
     addMessage(prompt, 'user');
     userInput.value = '';
     sendButton.disabled = true;
@@ -52,31 +49,36 @@ async function sendMessage() {
 
     try {
         const response = await fetch(API_URL, {
-            method: 'POST',
+            method: 'POST', // 🔑 კრიტიკულია 404-ის თავიდან ასაცილებლად
             headers: {
                 'Content-Type': 'application/json',
-                // 3. API Key-ს გაგზავნა ჰედერში
                 'X-API-Key': currentApiKey 
             },
             body: JSON.stringify(payload)
         });
 
-        // 4. JSON პასუხის წაკითხვა
         const data = await response.json(); 
 
         if (response.ok && data.status === 'success') {
-            // 🛑 კრიტიკული ხაზი: მხოლოდ 'ai_response' ველის ამოღება და ჩვენება
-            addMessage(data.ai_response, 'ai'); 
+            let aiResponseText = data.ai_response;
+            
+            if (typeof aiResponseText !== 'string' || !aiResponseText) {
+                // თუ პასუხი ვერ მოიძებნა, გამოიტანეთ მთელი JSON ტექსტად
+                aiResponseText = `ERROR: პასუხი ვერ იქნა ამოღებული. სრული პასუხი: ${JSON.stringify(data)}`;
+            }
+            
+            // 🛑 სწორედ აქ ხდება მხოლოდ ტექსტის ჩვენება
+            addMessage(aiResponseText, 'ai'); 
             statusMessage.textContent = '';
+
         } else {
-            // 5. შეცდომის დამუშავება (მათ შორის 401 Unauthorized)
-            const errorMsg = data.detail || data.ai_response || JSON.stringify(data);
-            addMessage(`შეცდომა: ${errorMsg}`, 'ai');
-            statusMessage.textContent = `API შეცდომა: ${response.status} - ${errorMsg.substring(0, 50)}...`;
+            // 404, 401, ან სხვა შეცდომის დამუშავება
+            const errorMsg = data.detail || data.ai_response || JSON.stringify(data, null, 2);
+            addMessage(`API შეცდომა: ${errorMsg}`, 'ai');
+            statusMessage.textContent = `API შეცდომა: ${response.status}. შეამოწმეთ URL/გასაღები.`;
         }
 
     } catch (error) {
-        // 6. ქსელური შეცდომის დამუშავება
         console.error('ქსელური შეცდომა:', error);
         addMessage('შეცდომა: სერვერთან დაკავშირება ვერ ხერხდება. შეამოწმეთ URL.', 'ai');
         statusMessage.textContent = 'შეცდომა: სერვერი მიუწვდომელია.';
@@ -85,10 +87,8 @@ async function sendMessage() {
     }
 }
 
-// ღილაკზე დაჭერით გაგზავნა
 sendButton.addEventListener('click', sendMessage);
 
-// Enter-ზე დაჭერით გაგზავნა
 userInput.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         sendMessage();
