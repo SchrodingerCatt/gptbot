@@ -1,68 +1,83 @@
-// სავარაუდო გლობალური ცვლადები
-// const userInput = document.getElementById('user-input');
-// const sendButton = document.getElementById('send-button');
-// const statusMessage = document.getElementById('status-message');
-// const API_URL = '/api/query'; // თქვენი API ენდპოინტი
-// const USER_ID = 'session-123'; // მომხმარებლის იდენტიფიკატორი
+// ეს ცვლადები უნდა შეცვალოთ თქვენი კონფიგურაციის მიხედვით
+// API_URL უნდა მიუთითებდეს თქვენს Render-ზე დაჰოსტილ სერვერზე
+const API_URL = "/process_query"; // თუ frontend და backend ერთ დომენზეა, გამოიყენეთ შედარებითი მისამართი
+const USER_ID = "test_user_001"; // მომხმარებლის იდენტიფიკატორი
+// -------------------------------------------------------------
 
+const chatBox = document.getElementById('chat-box');
+const userInput = document.getElementById('user-input');
+const sendButton = document.getElementById('send-button');
+const statusMessage = document.getElementById('status-message');
+
+// ფუნქცია შეტყობინების ჩატ-ბოქსში დასამატებლად
+function addMessage(text, sender) {
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message');
+    messageDiv.classList.add(sender === 'user' ? 'user-message' : 'ai-message');
+    messageDiv.textContent = text;
+    chatBox.appendChild(messageDiv);
+    
+    // ჩატის ბოქსის ბოლოში ჩასქროლვა
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// API-სთან კომუნიკაციის ფუნქცია
 async function sendMessage() {
     const prompt = userInput.value.trim();
     if (!prompt) return;
 
-    // A. UI განახლება
+    // 1. მომხმარებლის შეტყობინების დამატება
     addMessage(prompt, 'user');
     userInput.value = '';
     sendButton.disabled = true;
-    statusMessage.textContent = 'Processing request...'; 
+    statusMessage.textContent = 'პასუხის გენერაცია მიმდინარეობს...';
 
-    // 🛑 ყველაზე მნიშვნელოვანი ცვლილება: Base64 კოდირება მოხსნილია!
-    // სერვერს ვუგზავნით უბრალო, დაუშიფრავ ტექსტს (prompt)
+    // Base64 კოდირება მოხსნილია, prompt-ი გადის უცვლელად.
     const payload = {
-        prompt: prompt, // prompt-ი გადის უცვლელად
+        prompt: prompt, 
         user_id: USER_ID
     };
 
-    // B. FETCH API-ის გამოყენება
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
                 // Content-Type: application/json უზრუნველყოფს UTF-8-ის სწორად გაგზავნას
                 'Content-Type': 'application/json',
+                // X-API-Key ჰედერი მოხსნილია უსაფრთხოებისთვის.
             },
             body: JSON.stringify(payload)
         });
 
-        sendButton.disabled = false;
-        statusMessage.textContent = '';
+        const data = await response.json();
 
-        if (response.ok) {
-            // წარმატებული HTTP სტატუსი (200-299)
-            const data = await response.json();
-            if (data.status === 'success') {
-                addMessage(data.ai_response, 'ai');
-            } else {
-                const errorMsg = data.ai_response || 'Internal API logic failure.';
-                addMessage(`Error: ${errorMsg}`, 'ai');
-                statusMessage.textContent = 'API Error: Internal response failed.';
-            }
+        if (response.ok && data.status === 'success') {
+            // 2. წარმატებული პასუხის ჩვენება
+            addMessage(data.ai_response, 'ai');
+            statusMessage.textContent = '';
         } else {
-            // HTTP შეცდომა (404, 500, etc.)
-            let detail = `HTTP Status ${response.status}`;
-            try {
-                // ვცდილობთ ერორის დეტალები JSON-დან ამოვიღოთ
-                const errorData = await response.json();
-                detail = errorData.detail || detail;
-            } catch (e) {
-                // თუ პასუხი JSON ფორმატში არაა
-            }
-            addMessage(`Server Error: ${detail}`, 'ai');
-            statusMessage.textContent = 'API Request Failed.';
+            // 3. შეცდომის ჩვენება
+            const errorMsg = data.detail || data.ai_response || 'პასუხის მიღებისას დაფიქსირდა შეცდომა.';
+            addMessage(`შეცდომა: ${errorMsg}`, 'ai');
+            statusMessage.textContent = 'API შეცდომა: პასუხი ვერ იქნა მიღებული.';
         }
+
     } catch (error) {
-        // ქსელური შეცდომა
+        // 4. ქსელური შეცდომის ჩვენება
+        console.error('ქსელური შეცდომა:', error);
+        addMessage('შეცდომა: სერვერთან დაკავშირება ვერ ხერხდება.', 'ai');
+        statusMessage.textContent = 'შეცდომა: სერვერი მიუწვდომელია.';
+    } finally {
         sendButton.disabled = false;
-        statusMessage.textContent = '';
-        addMessage(`Network Error: Failed to connect to API or request aborted.`, 'ai');
     }
 }
+
+// ღილაკზე დაჭერით გაგზავნა
+sendButton.addEventListener('click', sendMessage);
+
+// Enter-ზე დაჭერით გაგზავნა
+userInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
