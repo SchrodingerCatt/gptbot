@@ -1,22 +1,22 @@
 import os
+# ✅ გამოიყენეთ სწორი იმპორტი
+from langchain_chroma import Chroma 
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter 
-from langchain_community.vectorstores import Chroma
+# 🛑 მოძველებული იმპორტი: # from langchain_community.vectorstores import Chroma
 
 # --- კონფიგურაცია ---
-DATA_DIR = "Steam"  # საქაღალდე PDF ფაილებით (ეს უნდა ატვირთოთ GitHub-ზე ან გამოიყენოთ Render-ის File Storage-ი)
-CHROMA_PATH = "chroma_db"  # ვექტორული ბაზის საქაღალდე
+DATA_DIR = "Steam"  
+CHROMA_PATH = "chroma_db" 
 
 # ----------------------------------------------------------------------------------
 # --- გასაღებების ჩატვირთვა ENVIRONMENT VARIABLES-იდან (უსაფრთხო) ---
-#  ეს გასაღები Render-ზე უნდა შექმნათ: OPENAI_API_KEY
 # ----------------------------------------------------------------------------------
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") 
 
 # ----------------------------------------------------
 # API გასაღების იძულებითი დაყენება
-# LangChain-ისთვის საჭიროა, რომ ეს ცვლადი არსებობდეს გარემოში
 # ----------------------------------------------------
 if OPENAI_API_KEY:
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
@@ -60,12 +60,13 @@ def ingest_data():
     
     #  შემოწმება, რომ გასაღები ნამდვილად ჩაიტვირთა გარემოდან
     if not OPENAI_API_KEY:
-         print(" ERROR: OpenAI API გასაღები ვერ მოიძებნა ვექტორიზაციისთვის. შეამოწმეთ Environment Variables.")
-         return
-         
+          print(" ERROR: OpenAI API გასაღები ვერ მოიძებნა ვექტორიზაციისთვის. შეამოწმეთ Environment Variables.")
+          return
+          
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     
     # ვექტორული ბაზის შექმნა და შენახვა
+    # ✅ გამოიყენება ახალი Chroma კლასი
     Chroma.from_documents(
         texts,
         embeddings,
