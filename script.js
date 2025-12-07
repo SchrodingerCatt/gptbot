@@ -1,5 +1,7 @@
 // 🔑 !!! კონფიგურაცია !!!
-const API_URL = "http://localhost:8040/process_query";
+// Render-ზე დეპლოის შემდეგ, შეცვალეთ API_URL თქვენი Render სერვისის მისამართით:
+// მაგ: const API_URL = "https://your-render-service.onrender.com/process_query";
+const API_URL = "http://localhost:8040/process_query"; 
 const USER_ID = "test_user_001";
 // -------------------------------------------------------------
 
@@ -7,22 +9,15 @@ const chatBox = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 const statusMessage = document.getElementById('status-message');
-
-// 📢 დაამატეთ ცალკე ველს API გასაღებისთვის (ან გამოიყენეთ გლობალური ცვლადი)
-// ახალი ველი DOM-ში:
-// <input type="password" id="api-key-input" placeholder="შეიყვანეთ API გასაღები"> 
-const apiKeyInput = document.getElementById('api-key-input'); 
+const apiKeyInput = document.getElementById('api-key-input'); // 📢 API გასაღების ველი
 
 // ფუნქცია შეტყობინების ჩატ-ბოქსში დასამატებლად
 function addMessage(text, sender) {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message');
     messageDiv.classList.add(sender === 'user' ? 'user-message' : 'ai-message');
-    // უსაფრთხოების გასაუმჯობესებლად: გამოიყენეთ innerHTML Markdown-ის მხარდასაჭერად, მაგრამ გაფილტრვით.
     messageDiv.textContent = text; 
     chatBox.appendChild(messageDiv);
-    
-    // ჩატის ბოქსის ბოლოში ჩასქროლვა
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
@@ -35,11 +30,10 @@ async function sendMessage() {
     const currentApiKey = apiKeyInput ? apiKeyInput.value.trim() : "";
     
     if (!currentApiKey) {
-        statusMessage.textContent = '❌ გთხოვთ, შეიყვანოთ API გასაღები.';
+        statusMessage.textContent = '❌ გთხოვთ, შეიყვანოთ X-API-Key.';
         return;
     }
 
-    // 1. მომხმარებლის შეტყობინების დამატება
     addMessage(prompt, 'user');
     userInput.value = '';
     sendButton.disabled = true;
@@ -55,8 +49,7 @@ async function sendMessage() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                // 2. API Key-ს გაგზავნა ჰედერში
-                'X-API-Key': currentApiKey 
+                'X-API-Key': currentApiKey // გასაღების გაგზავნა
             },
             body: JSON.stringify(payload)
         });
@@ -64,30 +57,25 @@ async function sendMessage() {
         const data = await response.json();
 
         if (response.ok && data.status === 'success') {
-            // 3. წარმატებული პასუხის ჩვენება
             addMessage(data.ai_response, 'ai');
             statusMessage.textContent = '';
         } else {
-            // 4. შეცდომის ჩვენება
             const errorMsg = data.detail || data.ai_response || 'პასუხის მიღებისას დაფიქსირდა შეცდომა.';
             addMessage(`შეცდომა: ${errorMsg}`, 'ai');
             statusMessage.textContent = `API შეცდომა: ${response.status} - ${errorMsg}`;
         }
 
     } catch (error) {
-        // 5. ქსელური შეცდომის ჩვენება
         console.error('ქსელური შეცდომა:', error);
-        addMessage('შეცდომა: სერვერთან დაკავშირება ვერ ხერხდება. შეამოწმეთ API URL და რომ სერვერი ჩართულია.', 'ai');
+        addMessage('შეცდომა: სერვერთან დაკავშირება ვერ ხერხდება.', 'ai');
         statusMessage.textContent = 'შეცდომა: სერვერი მიუწვდომელია.';
     } finally {
         sendButton.disabled = false;
     }
 }
 
-// ღილაკზე დაჭერით გაგზავნა
 sendButton.addEventListener('click', sendMessage);
 
-// Enter-ზე დაჭერით გაგზავნა
 userInput.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         sendMessage();
