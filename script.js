@@ -1,7 +1,9 @@
 // 🔑 !!! კონფიგურაცია !!!
 // შეცვალეთ ეს მისამართი თქვენი Render სერვისის საბაზისო URL-ით.
 // მაგ: "https://your-service-name.onrender.com/process_query"
-const API_URL = "http://localhost:8040/process_query"; 
+// script.js ფაილში:
+// შეცვალეთ ეს ხაზი!
+const API_URL = "https://gptbot-v1.1.onrender.com/process_query";; 
 const USER_ID = "test_user_001";
 // -------------------------------------------------------------
 
