@@ -2,16 +2,17 @@ import os
 import requests
 import json
 import time
-from fastapi import FastAPI, Header, HTTPException, Depends, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 from pypdf import PdfReader
 from typing import Optional
 
-# 🆕 დამატებული იმპორტები სტატიკური ფაილებისთვის
-from fastapi.staticfiles import StaticFiles
+# დამატებული იმპორტები სტატიკური ფაილებისთვის
 from fastapi.responses import HTMLResponse
+# 💡 საჭიროა ფაილების უსაფრთხოდ წასაკითხად ნებისმიერ გარემოში
+from pathlib import Path
 
 # 🚀 .env ფაილის ჩატვირთვა
 from dotenv import load_dotenv
@@ -19,9 +20,8 @@ load_dotenv()
 
 # 🔑 გასაღებების წაკითხვა გარემოს ცვლადებიდან
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-LOCAL_API_KEY = os.getenv("LOCAL_API_KEY")
 
-# --- RAG ინსტრუმენტების იმპორტი (OpenAI-სთვის) ---
+# --- RAG ინსტრუმენტების იმპორტი ---
 RAG_TOOLS_AVAILABLE = False
 try:
     if OPENAI_API_KEY:
@@ -34,7 +34,7 @@ try:
         print("✅ RAG ბიბლიოთეკები წარმატებით ჩაიტვირთა.")
     else:
         print("❌ WARNING: OPENAI_API_KEY ვერ იქნა ნაპოვნი. RAG ფუნქციები გამორთულია.")
-except ImportError as e:
+except Exception as e:
     print(f"❌ WARNING: RAG ბიბლიოთეკების იმპორტის შეცდომაა: {e}. RAG ფუნქციები გამორთულია.")
 
 # --- კონფიგურაცია ---
@@ -47,16 +47,19 @@ global_rag_retriever: Optional[Chroma.as_retriever] = None
 
 # --- ფუნქცია პერსონის PDF-დან ჩასატვირთად ---
 def load_persona_from_pdf(file_path: str) -> str:
-    # (ფუნქციის შიგთავსი იგივე რჩება)
+    # 💡 იყენებს Path-ს უსაფრთხოებისათვის
     DEFAULT_PERSONA = "თქვენ ხართ სასარგებლო ასისტენტი, რომელიც პასუხობს ქართულ ენაზე."
+    
+    # ფაილის აბსოლუტური გზა
+    base_dir = Path(__file__).parent
+    full_path = base_dir / file_path
+    
     try:
-        reader = PdfReader(file_path)
+        reader = PdfReader(full_path)
         text = "".join(page.extract_text() + "\n\n" for page in reader.pages if page.extract_text())
-
         if not text.strip():
             print(f"❌ ERROR: PDF ფაილი '{file_path}' ცარიელია. გამოყენებულია დეფოლტური პერსონა.")
             return DEFAULT_PERSONA
-
         print(f"✅ პერსონის ტექსტი წარმატებით ჩაიტვირთა {file_path}-დან. სიგრძე: {len(text.strip())} სიმბოლო.")
         return text.strip()
     except Exception as e:
@@ -78,12 +81,16 @@ async def startup_event():
         return
 
     print(">>> RAG სისტემის ინიციალიზაცია (OpenAI)...")
+    
+    # 💡 იყენებს Path-ს ChromaDB-ის აბსოლუტური გზის მისაღებად
+    base_dir = Path(__file__).parent
+    full_chroma_path = base_dir / CHROMA_PATH
 
-    if os.path.exists(CHROMA_PATH):
+    if full_chroma_path.exists():
         try:
             embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
             vector_store = Chroma(
-                persist_directory=CHROMA_PATH,
+                persist_directory=str(full_chroma_path),
                 embedding_function=embeddings
             )
             global_rag_retriever = vector_store.as_retriever(search_kwargs={"k": 3})
@@ -103,22 +110,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🛑 /static-ის დამაუნტება (თუ გაქვთ ცალკე CSS/JS ფაილები)
-# app.mount("/static", StaticFiles(directory="frontend_files"), name="static")
-
-
-# --- ახალი ROOT ენდფოინტი, რომელიც index.html-ს ემსახურება ---
+# --- 💡 ROOT ენდფოინტი, რომელიც index.html-ს ემსახურება ---
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def read_index():
-    """აბრუნებს index.html-ს მთავარ მისამართზე."""
-    # დარწმუნდით, რომ index.html არის main.py-ის გვერდით
+    """აბრუნებს index.html-ს მთავარ მისამართზე, იყენებს უსაფრთხო გზას."""
+    # 💡 იყენებს Path-ს index.html-ის აბსოლუტური გზის მისაღებად
+    base_dir = Path(__file__).parent
+    file_path = base_dir / "index.html"
+    
     try:
-        with open("index.html", "r", encoding="utf-8") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
-        return HTMLResponse("<h1>Error: index.html not found!</h1>", status_code=500)
-
-# 🛑 წინა @app.get("/") ენდფოინტი (რომელიც JSON-ს აბრუნებდა) ამოღებულია.
+        return HTMLResponse("<h1>Error 500: index.html not found!</h1>", status_code=500)
+    except Exception as e:
+        return HTMLResponse(f"<h1>Error loading index.html: {e}</h1>", status_code=500)
 
 
 # მონაცემთა მოდელები
@@ -133,9 +139,8 @@ class ChatbotResponse(BaseModel):
     result_data: dict
 
 # --- OpenAI API-ს გამოძახება (RAG ლოგიკით) ---
-# (generate_openai_content ფუნქცია რჩება უცვლელი)
 def generate_openai_content(prompt: str) -> str:
-    """უკავშირდება OpenAI API-ს, იყენებს RAG-ს კონტექსტის დასამატებლად."""
+    # (ფუნქციის შიგთავსი რჩება იგივე)
     if not OPENAI_API_KEY:
         return "ERROR: OPENAI API გასაღები აკლია გარემოს ცვლადებში."
 
@@ -214,6 +219,7 @@ def generate_openai_content(prompt: str) -> str:
 async def process_query(
     request_data: ChatbotRequest,
 ):
+    # (ფუნქციის შიგთავსი რჩება იგივე)
     openai_response = generate_openai_content(request_data.prompt)
 
     response_data = {
