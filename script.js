@@ -17,57 +17,73 @@ function addMessage(text, sender) {
     messageDiv.textContent = text;
     chatBox.appendChild(messageDiv);
     
-    // ჩატის ბოქსის ბოლოში ჩასქროლვა
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// API-სთან კომუნიკაციის ფუნქცია
-async function sendMessage() {
+// API-სთან კომუნიკაციის ფუნქცია XMLHttpRequest-ის გამოყენებით
+function sendMessage() {
     const prompt = userInput.value.trim();
     if (!prompt) return;
 
-    // 1. მომხმარებლის შეტყობინების დამატება
     addMessage(prompt, 'user');
     userInput.value = '';
     sendButton.disabled = true;
     statusMessage.textContent = 'პასუხის გენერაცია მიმდინარეობს...';
 
-    // 🛑 მონაცემების შექმნა Form Data ფორმატში
+    // მონაცემების შექმნა Form Data ფორმატში
     const formData = new URLSearchParams();
     formData.append('prompt', prompt); 
     formData.append('user_id', USER_ID);
 
-    try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                // 💡 აუცილებელი ჰედერი Form Data-სთვის
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: formData.toString() // მონაცემების გაგზავნა
-        });
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', API_URL, true); // მესამე პარამეტრი (true) ნიშნავს ასინქრონულს
 
-        const data = await response.json();
+    // 💡 Content-Type-ს დაყენება Form Data-სთვის
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
-        if (response.ok && data.status === 'success') {
-            // 2. წარმატებული პასუხის ჩვენება
-            addMessage(data.ai_response, 'ai');
-            statusMessage.textContent = '';
-        } else {
-            // 3. შეცდომის ჩვენება
-            const errorMsg = data.detail || data.ai_response || 'პასუხის მიღებისას დაფიქსირდა შეცდომა.';
-            addMessage(`შეცდომა: ${errorMsg}`, 'ai');
-            statusMessage.textContent = 'API შეცდომა: პასუხი ვერ იქნა მიღებული.';
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) { // 4 ნიშნავს, რომ მოთხოვნა დასრულებულია
+            sendButton.disabled = false;
+            
+            if (xhr.status === 200) { // 200 ნიშნავს წარმატებას
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.status === 'success') {
+                        addMessage(data.ai_response, 'ai');
+                        statusMessage.textContent = '';
+                    } else {
+                        const errorMsg = data.detail || data.ai_response || 'პასუხის მიღებისას დაფიქსირდა შეცდომა.';
+                        addMessage(`შეცდომა: ${errorMsg}`, 'ai');
+                        statusMessage.textContent = 'API შეცდომა: პასუხი ვერ იქნა მიღებული.';
+                    }
+                } catch (e) {
+                    // JSON parsing შეცდომა
+                    addMessage(`შეცდომა: სერვერმა დააბრუნა არასწორი მონაცემები.`, 'ai');
+                    statusMessage.textContent = 'პასუხის დამუშავების შეცდომა.';
+                    console.error('JSON Parse Error:', e);
+                }
+            } else {
+                // HTTP სტატუსის შეცდომა (404, 500 და ა.შ.)
+                let errorDetails = `HTTP Error ${xhr.status}`;
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    errorDetails += `: ${data.detail || data.ai_response}`;
+                } catch {}
+                addMessage(`შეცდომა: ${errorDetails}`, 'ai');
+                statusMessage.textContent = `სერვერის შეცდომა: ${xhr.status}`;
+            }
         }
-
-    } catch (error) {
-        // 4. ქსელური შეცდომის ჩვენება
-        console.error('ქსელური შეცდომა:', error);
-        addMessage('შეცდომა: სერვერთან დაკავშირება ვერ ხერხდება.', 'ai');
-        statusMessage.textContent = 'შეცდომა: სერვერი მიუწვდომელია.';
-    } finally {
+    };
+    
+    // ქსელური შეცდომების დამუშავება
+    xhr.onerror = function() {
         sendButton.disabled = false;
-    }
+        addMessage('შეცდომა: სერვერთან დაკავშირება ვერ ხერხდება (ქსელი).', 'ai');
+        statusMessage.textContent = 'შეცდომა: სერვერი მიუწვდომელია.';
+    };
+
+    // მოთხოვნის გაგზავნა
+    xhr.send(formData.toString());
 }
 
 // ღილაკზე დაჭერით გაგზავნა
