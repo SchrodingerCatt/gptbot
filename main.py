@@ -1,9 +1,9 @@
 import os
 import uvicorn
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Form # 💡 დამატებულია Form
 from pydantic import BaseModel
-# გამოიყენება განახლებული პაკეტი: langchain-chroma
-from langchain_chroma import Chroma
+# ✅ სწორი იმპორტი: გამოიყენეთ langchain-chroma
+from langchain_chroma import Chroma 
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
@@ -33,22 +33,22 @@ def init_rag_system():
         # Load text from PDF
         loader = PyPDFLoader("prompt.pdf")
         documents = loader.load()
-        print(f"Text successfully loaded from prompt.pdf. Total length: {sum(len(doc.page_content) for doc in documents)} characters.")
+        print(f"პერსონის ტექსტი წარმატებით ჩაიტვირთა prompt.pdf-დან. სიგრძე: {sum(len(doc.page_content) for doc in documents)} სიმბოლო.")
         
         # Split document
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
         texts = text_splitter.split_documents(documents)
 
         # Initialize embeddings
-        print(">>> Initializing RAG system (OpenAI)...")
+        print(">>> RAG სისტემის ინიციალიზაცია (OpenAI)...")
         embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
         
-        # Create and persist vector store
+        # Create and persist vector store (იყენებს langchain_chroma.Chroma-ს)
         vector_store = Chroma.from_documents(texts, embeddings, persist_directory="chroma_db")
         vector_store.persist()
         
         # Initialize RAG Retriever
-        print("RAG Retriever successfully loaded from chroma_db.")
+        print("RAG Retriever წარმატებით ჩაიტვირთა chroma_db-დან.")
         
         # Initialize LLM
         llm = ChatOpenAI(temperature=0, openai_api_key=OPENAI_API_KEY)
@@ -59,10 +59,10 @@ def init_rag_system():
             chain_type="stuff",
             retriever=vector_store.as_retriever()
         )
-        print("RAG Chain successfully created.")
+        print("RAG Chain წარმატებით შეიქმნა.")
 
     except Exception as e:
-        print(f"!!! RAG System Initialization Error: {e}")
+        print(f"!!! RAG სისტემის ინიციალიზაციის შეცდომა: {e}")
         rag_chain = None 
 
 # -------------------------------------------------------------
@@ -76,39 +76,37 @@ app = FastAPI(title="GPT-RAG Chatbot API")
 async def startup_event():
     init_rag_system()
 
-# Data Models
-class ChatbotRequest(BaseModel):
-    # იღებს წმინდა UTF-8 სტრიქონს
-    prompt: str 
-    user_id: str
-
+# Data Models (ეს მხოლოდ პასუხის მოდელია)
 class ChatbotResponse(BaseModel):
     status: str
     processed_prompt: str
     ai_response: str
     result_data: dict
 
-# *** განახლებული ენდპოინტი: /api/query ***
+# *** განახლებული ენდპოინტი: იღებს Form Data-ს ***
 @app.post("/api/query", response_model=ChatbotResponse, tags=["Public"])
-async def process_query(request_data: ChatbotRequest):
+async def process_query(
+    prompt: str = Form(...), # 💡 მიიღებს prompt-ს Form Data-დან
+    user_id: str = Form(...)  # 💡 მიიღებს user_id-ს Form Data-დან
+):
     
-    # Base64 დეკოდირება მოხსნილია
-    decoded_prompt = request_data.prompt 
+    # Base64 დეკოდირება მოხსნილია, ვიღებთ წმინდა ტექსტს
+    decoded_prompt = prompt 
 
     if not rag_chain:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="RAG system is still initializing or failed to load.",
+            detail="RAG სისტემა ინიციალიზაციის ფაზაშია ან ვერ ჩაიტვირთა.",
         )
 
     try:
         # გამოიყენეთ დაუშიფრავი ტექსტი RAG ჯაჭვში
         result = rag_chain.invoke({"query": decoded_prompt})
-        ai_response = result.get('result', "Response could not be generated.")
+        ai_response = result.get('result', "პასუხის გენერირება ვერ მოხერხდა.")
 
         return ChatbotResponse(
             status="success",
-            processed_prompt=f"Your query processed. Length: {len(decoded_prompt)}.",
+            processed_prompt=f"თქვენი შეკითხვა დამუშავდა. სიგრძე: {len(decoded_prompt)}.",
             ai_response=ai_response,
             result_data={},
         )
@@ -116,7 +114,7 @@ async def process_query(request_data: ChatbotRequest):
         print(f"Error running RAG chain: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An internal server error occurred: {str(e)}",
+            detail=f"შიდა სერვერის შეცდომა: {str(e)}",
         )
 
 # Static files serving
