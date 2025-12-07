@@ -15,6 +15,6 @@ chromadb
 pypdf
 requests
 python-dotenv
-python-multipart
-
+python-multipart 
+# 🆕 aiofiles - საჭიროა სტატიკური ფაილების მომსახურებისთვის
 aiofiles
